@@ -15,8 +15,7 @@ var app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
-// uncomment after placing your favicon in /public
-//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
@@ -45,7 +44,7 @@ app.use(function(err, req, res, next) {
     res.render('error');
 });
 
-if (module === require.main) {
+/*if (module === require.main) {
     // [START gcloud server]
     // Start the server
     const server = app.listen(process.env.PORT || 8080, () => {
@@ -53,6 +52,6 @@ if (module === require.main) {
         console.log(`App listening on port ${port}`);
     });
     // [END server]
-}
+}*/
 
 module.exports = app;

@@ -2,9 +2,10 @@
     "name": "frontend",
     "version": "0.0.0",
     "private": true,
+    "description": "Frontend for my insight data engineering project",
+    "repository": "https://github.com/TanakritBenz/insight-data-engin-proj",
     "scripts": {
-        "start-local": "node ./bin/www",
-        "start": "node app.js",
+        "start": "node ./bin/www",
         "monitor": "nodemon app.js",
         "deploy": "gcloud app deploy app.yaml",
         "test": "mocha test/index.js -t 30000"

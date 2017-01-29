@@ -1,3 +1,4 @@
 html, body {
-    font-family: -apple-system, ".SFNSText-Regular", "San Francisco", "Helvetica Neue", "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", "Roboto", "Segoe UI", "Lucida Grande", sans-serif;
+    font-family: -apple-system, system-ui, BlinkMacSystemFont, ".SFNSText-Regular", "San Francisco", "Helvetica Neue", "Helvetica Neue Light", "HelveticaNeue-Light", "Segoe UI", Roboto, "Lucida Grande", Arial, sans-serif;
+    background-color: #dbe6ec;
 }

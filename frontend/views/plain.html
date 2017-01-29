@@ -1,4 +1,17 @@
 <!DOCTYPE html>
-<div flex="10"></div>
-<div flex>Hello world!</div>
-<div flex="10"></div>
+
+<div layout="row">
+    <div class="col text-center">
+        <img class="center-block" alt="Reddit Logo" src="/images/Reddit-Logo-Transparent.png" style="max-width: 500px;" />
+    </div>
+</div>
+<div layout="row">
+    <div class="col">
+        <div class="input-group input-group-lg">
+            <input ng-model="search_topic" ng-keyup="$event.keyCode == 13 && commitQuery()" type="text" class="form-control" placeholder="Search Topic">
+            <span class="input-group-btn">
+                <button ng-click="commitQuery()" class="btn btn-primary" type="button">Go!</button>
+            </span>
+        </div>
+    </div>
+</div>
