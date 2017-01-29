@@ -50,7 +50,6 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 
 # Flask stuff:
@@ -91,10 +90,10 @@ ENV/
 *.sw*
 *~
 
-# Logs and databases #
+# Logs and databases
 *.log
 
-# OS generated files #
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -104,3 +103,6 @@ Icon?
 ehthumbs.db
 Thumbs.db
 
+# Nodejs 
+node_modules
+config.json
