@@ -1,11 +1,8 @@
 'use strict';
 
 const express = require('express');
-const bodyParser = require('body-parser');
 const cassandra = require('cassandra-driver');
-const router = express.Router();
-
-router.use(bodyParser.json());
+const router = express();
 
 const client = new cassandra.Client({
     contactPoints: ['ec2-52-34-22-125.us-west-2.compute.amazonaws.com',
@@ -18,20 +15,20 @@ client.connect(function(err, result) {
 });
 
 const query = 'SELECT * FROM word_time_json WHERE word = ? ORDER BY created_utc_uuid DESC LIMIT 10;';
-var params = ['rip'];
 
-router.get('/search', function(req, res) {
-    client.execute(query, params, {
+router.get('/:search', function(req, res) {
+    client.execute(query, [req.params.search], {
         prepare: true
     }, function(err, result) {
         console.log('result => %s', result);
         if (err) {
             res.status(404).send({
-                msg: err
+                'msg': err,
+                'response': result
             });
         } else {
             res.json({
-                response: result,
+                'response': result,
             });
         }
     });
