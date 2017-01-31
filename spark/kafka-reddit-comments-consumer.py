@@ -1,19 +1,20 @@
 from __future__ import print_function
-
-
 import sys
 import json
 import pprint
-
 from pyspark import SparkConf, SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
-
 from elasticsearch import Elasticsearch
-es = Elasticsearch(['http://elastic:changeme@ec2-35-163-28-86.us-west-2.compute.amazonaws.com:9200/'])
+from ..config import ES_HOST, CASSANDRA_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
+
+
+es = Elasticsearch([ES_HOST])
+
 
 def filterEmptyRDD(rdd):
     return not rdd.isEmpty()
+
 
 def writeToES(rdd):
     es.indices.create(index='reddit_comments', ignore=400)
@@ -24,10 +25,10 @@ def writeToES(rdd):
         print('\n')
 
 if __name__ == "__main__":
-    sconf = SparkConf().setAppName("reddit_comments_consumer").setMaster("spark://ip-172-31-0-109:7077")
+    sconf = SparkConf().setAppName("reddit_comment_consumer").setMaster(SPARK_MASTER)
     sc = SparkContext(conf=sconf)
-    ssc = StreamingContext(sc, 5)
-    brokers = "ec2-52-34-22-125.us-west-2.compute.amazonaws.com:9092,ec2-52-33-253-180.us-west-2.compute.amazonaws.com:9092,ec2-52-34-64-163.us-west-2.compute.amazonaws.com:9092"
+    ssc = StreamingContext(sc, 2)
+    brokers = KAFKA_BROKER_1 + ',' + KAFKA_BROKER_2 + ',' + KAFKA_BROKER_3
     topic = "reddit_comments"
     kvs = KafkaUtils.createDirectStream(ssc, [topic], {"metadata.broker.list": brokers})
     comments = (

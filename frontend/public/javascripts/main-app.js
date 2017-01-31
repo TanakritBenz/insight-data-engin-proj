@@ -5,4 +5,5 @@ mainApp.controller('MainController', function MainController($scope) {
     $scope.commitQuery = function(){
         console.log($scope.search_topic);
     };
+
 });

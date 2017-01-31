@@ -1,9 +1,9 @@
 import sys
 import time
-import random
 import json
 import urllib2
 from kafka import KafkaProducer
+from ..config import KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
 
 
 class Producer(object):
@@ -12,7 +12,7 @@ class Producer(object):
         self.producer = KafkaProducer(bootstrap_servers=ip_addr, value_serializer=lambda m: json.dumps(m).encode('utf-8', errors='ignore'))
 
     def produce_msgs(self):
-        f = lambda x: str(x) if isinstance(x, bool) else x
+        # f = lambda x: str(x) if isinstance(x, bool) else x
         msg_cnt = 1
         hdr = {'User-Agent': 'Kafka Producer'}
         req = urllib2.Request('https://www.reddit.com/r/all/comments/.json?limit=100', headers=hdr)
@@ -20,6 +20,7 @@ class Producer(object):
             data = json.load(urllib2.urlopen(req))
             comments = data['data']['children']
             for c in comments:
+                c = c['data']
                 '''
                 c['link_title'], #Post title
                 c['body'], #Comment text
@@ -34,7 +35,6 @@ class Producer(object):
                 c['gilded'], #int
                 c['score'], #int
                 '''
-                c = c['data']
                 wanted_keys = [u'id', u'link_title', u'body', u'author', u'subreddit',
                                u'parent_id', u'created_utc', u'over_18', u'ups', u'downs',
                                u'controversiality', u'gilded', u'score']
@@ -62,6 +62,6 @@ class Producer(object):
 
 if __name__ == "__main__":
     args = sys.argv
-    kafka_ips = ['52.34.22.125:9092', '52.34.64.163:9092', '52.33.253.180:9092']
+    kafka_ips = [KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3]
     prod = Producer(kafka_ips)
     prod.produce_msgs()
