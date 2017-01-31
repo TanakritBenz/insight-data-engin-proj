@@ -103,6 +103,9 @@ Icon?
 ehthumbs.db
 Thumbs.db
 
-# Nodejs 
+# Nodejs
 node_modules
 config.json
+
+# Project config
+config.py
