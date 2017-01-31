@@ -7,7 +7,9 @@ from pyspark import SparkConf, SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
 from elasticsearch import Elasticsearch
-from ..config import ES_HOST, CASSANDRA_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
+from os import path
+sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+from config import ES_HOST, CASSANDRA_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
 
 
 es = Elasticsearch([ES_HOST])

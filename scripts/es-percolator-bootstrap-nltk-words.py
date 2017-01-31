@@ -1,7 +1,10 @@
+import sys
 import pprint
 from elasticsearch import Elasticsearch
 from nltk.corpus import words, stopwords
-from ..config import ES_HOST
+from os import path
+sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+from config import ES_HOST
 
 es = Elasticsearch([ES_HOST])
 mapping = {

@@ -3,7 +3,9 @@ import time
 import json
 import urllib2
 from kafka import KafkaProducer
-from ..config import KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
+from os import path
+sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+from config import KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
 
 
 class Producer(object):
