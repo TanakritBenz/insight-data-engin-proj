@@ -2,7 +2,7 @@ from __future__ import print_function
 import sys
 import json
 import pprint
-from cassandra import ConsistencyLevel, ReadTimeout
+from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
 from cassandra.util import datetime_from_timestamp, uuid_from_time, unix_time_from_uuid1
@@ -18,7 +18,17 @@ from config import ES_HOST, CASSANDRA_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_
 es = Elasticsearch([ES_HOST])
 cluster = Cluster([CASSANDRA_HOST])
 session = cluster.connect('reddit_comments')
-prepared_insert = "INSERT INTO word_time_json (inserted_time, id, word, created_utc_uuid, created_utc, link_title, body, author, subreddit, parent_id, over_18, ups, downs, controversiality, gilded, score) VALUES (toUnixTimestamp(now()),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+prepared_insert = session.prepare("""
+    INSERT INTO word_time_json (
+        inserted_time, id, word, created_utc_uuid, 
+        created_utc, link_title, body, author, 
+        subreddit, parent_id, over_18, ups, 
+        downs, controversiality, gilded, score) 
+    VALUES (toUnixTimestamp(now()),?,?,?,
+        ?,?,?,?,
+        ?,?,?,?,
+        ?,?,?,?)
+""")
 
 
 def writeToCassandra(rdd):
@@ -28,11 +38,10 @@ def writeToCassandra(rdd):
             res = es.percolate(index="comment_percolators", doc_type="doctype", body=tmp_doc)
             pprint.pprint(res)
             if res['total'] > 0:
-                #batch = BatchStatement(consistency_level=ConsistencyLevel.ONE)
-                futures = []
+                batch = BatchStatement(consistency_level=ConsistencyLevel.ONE)
                 for matched_query in res['matches']:
                     word_query = matched_query['_id']
-                    future = session.execute_async(prepared_insert,[ 
+                    batch.add(prepared_insert, (
                         comment['id'],
                         word_query,
                         uuid_from_time(int(comment['created_utc'])),
@@ -48,14 +57,9 @@ def writeToCassandra(rdd):
                         comment['controversiality'],
                         comment['gilded'],
                         comment['score']
-                    ])
-                    futures.append(future)
-                for future in futures:
-                    try:
-                        comment = future.result()
-                        pprint.pprint(comment)
-                    except ReadTimeout:
-                        log.exception("Write query time out:")
+                    ))
+                result = session.execute(batch)
+                pprint.pprint(result)
 
 
 if __name__ == "__main__":
