@@ -2,6 +2,7 @@ from __future__ import print_function
 import sys
 import json
 import pprint
+import datetime
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
@@ -11,7 +12,7 @@ from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
 from elasticsearch import Elasticsearch
 from os import path
-sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from config import ES_HOST, CASSANDRA_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
 
 
@@ -20,10 +21,10 @@ cluster = Cluster([CASSANDRA_HOST])
 session = cluster.connect('reddit_comments')
 prepared_insert = session.prepare("""
     INSERT INTO word_time_json (
-        inserted_time, id, word, created_utc_uuid, 
-        created_utc, link_title, body, author, 
-        subreddit, parent_id, over_18, ups, 
-        downs, controversiality, gilded, score) 
+        inserted_time, id, word, created_utc_uuid,
+        created_utc, link_title, body, author,
+        subreddit, parent_id, over_18, ups,
+        downs, controversiality, gilded, score)
     VALUES (toUnixTimestamp(now()),?,?,?,
         ?,?,?,?,
         ?,?,?,?,
@@ -38,14 +39,31 @@ def writeToCassandra(rdd):
             res = es.percolate(index="comment_percolators", doc_type="doctype", body=tmp_doc)
             pprint.pprint(res)
             if res['total'] > 0:
-                batch = BatchStatement(consistency_level=ConsistencyLevel.ONE)
+                # batch = BatchStatement(consistency_level=ConsistencyLevel.ONE)
                 for matched_query in res['matches']:
-                    word_query = matched_query['_id']
-                    batch.add(prepared_insert, (
+                #     batch.add(prepared_insert, (
+                #         comment['id'],
+                #         matched_query['_id'],
+                #         uuid_from_time(datetime.datetime.fromtimestamp(comment['created_utc'])),
+                #         datetime.datetime.fromtimestamp(comment['created_utc']),
+                #         comment['link_title'],
+                #         comment['body'],
+                #         comment['author'],
+                #         comment['subreddit'],
+                #         comment['parent_id'],
+                #         comment['over_18'],
+                #         comment['ups'],
+                #         comment['downs'],
+                #         comment['controversiality'],
+                #         comment['gilded'],
+                #         comment['score']
+                #     ))
+                # result = session.execute(batch)
+                    result = session.execute(prepared_insert, (
                         comment['id'],
-                        word_query,
-                        uuid_from_time(int(comment['created_utc'])),
-                        int(comment['created_utc']),
+                        matched_query['_id'],
+                        uuid_from_time(datetime.datetime.fromtimestamp(comment['created_utc'])),
+                        datetime.datetime.fromtimestamp(comment['created_utc']),
                         comment['link_title'],
                         comment['body'],
                         comment['author'],
@@ -58,8 +76,7 @@ def writeToCassandra(rdd):
                         comment['gilded'],
                         comment['score']
                     ))
-                result = session.execute(batch)
-                pprint.pprint(result)
+                    pprint.pprint(result)
 
 
 if __name__ == "__main__":
@@ -71,7 +88,7 @@ if __name__ == "__main__":
     kvs = KafkaUtils.createDirectStream(ssc, [topic], {"metadata.broker.list": brokers})
     comments = (
         kvs.map(lambda x: json.loads(x[1]))
-          .foreachRDD(writeToCassandra)
+           .foreachRDD(writeToCassandra)
     )
 
     ssc.start()
