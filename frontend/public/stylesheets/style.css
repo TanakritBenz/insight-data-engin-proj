@@ -2,3 +2,7 @@ html, body {
     font-family: -apple-system, system-ui, BlinkMacSystemFont, ".SFNSText-Regular", "San Francisco", "Helvetica Neue", "Helvetica Neue Light", "HelveticaNeue-Light", "Segoe UI", Roboto, "Lucida Grande", Arial, sans-serif;
     background-color: #dbe6ec;
 }
+
+.highlight {
+    background-color: #feef6d;
+}

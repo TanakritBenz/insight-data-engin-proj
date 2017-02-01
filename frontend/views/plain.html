@@ -8,10 +8,28 @@
 <div layout="row">
     <div class="col">
         <div class="input-group input-group-lg">
-            <input ng-model="search_topic" ng-keyup="$event.keyCode == 13 && commitQuery()" type="text" class="form-control" placeholder="Search Topic">
+            <input ng-model="search_topic" ng-change="changeTopic()" ng-keyup="$event.keyCode == 13 && commitQuery()" type="text" class="form-control" placeholder="Search Topic">
             <span class="input-group-btn">
+                <button ng-click="cancelSearch()" ng-hide="cancelled" class="btn btn-warning " type="button">Stop</button>
                 <button ng-click="commitQuery()" class="btn btn-primary" type="button">Go!</button>
             </span>
         </div>
+    </div>
+</div>
+<br/>
+<div layout="row">
+    <div class="col">
+        <table ng-show="search_result.length > 0">
+            <col width="25%">
+            <col width="75%">
+            <tr align="left">
+                <th>Time</th>
+                <th>Comment</th>
+            </tr >
+            <tr ng-repeat="comment in search_result | orderBy:'ui_id':true | limitTo:5 track by $index" class="text-center">
+                <td align="left">{{comment.created_utc}}</td>
+                <td ng-bind-html="toTrustedHTML(comment.body)" align="left"></td>
+            </tr>
+        </table>
     </div>
 </div>

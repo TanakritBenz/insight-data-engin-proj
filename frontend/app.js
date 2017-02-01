@@ -1,15 +1,14 @@
 'use strict';
 
 var express = require('express');
+var app = express();
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-
 var index = require('./routes/index');
-
-var app = express();
+require("./routes/search")(app);
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
