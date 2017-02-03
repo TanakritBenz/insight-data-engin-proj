@@ -21,13 +21,11 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
                         method: 'GET',
                         url: '/search/' + $scope.search_topic + '/' + $scope.lasttime
                     }).then(function successCallback(response) {
-                        // this callback will be called asynchronously
-                        // when the response is available
                         for (var i = 0; i < response.data.response.length; i++) {
                             if ($scope.search_result_uuid.indexOf(response.data.response[i].created_utc_uuid) === -1) {
                                 $scope.search_result_uuid.push(response.data.response[i].created_utc_uuid);
                                 response.data.response[i].ui_id = $scope.result_counter;
-                                response.data.response[i].created_utc = moment.utc(response.data.response[i].created_utc).format('MMMM Do YYYY, h:mm:ss a');
+                                response.data.response[i].timestamp = moment.utc(response.data.response[i].created_utc).format('MMMM Do YYYY, h:mm:ss a');
                                 response.data.response[i].inserted_time = moment.utc(response.data.response[i].inserted_time).format('MMMM Do YYYY, h:mm:ss a');
                                 var index = response.data.response[i].body.indexOf($scope.search_topic);
                                 if (index >= 0) {
@@ -38,7 +36,7 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
                             }
                         }
                         if (response.data.response.length > 0) {
-                            $scope.lasttime = response.data.response[0].created_utc_uuid;
+                            $scope.lasttime = response.data.response[0].created_utc;
                             console.log('lasttime: ', $scope.lasttime);
                         }
                         console.log($scope.search_result);
@@ -60,6 +58,10 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
         $scope.cancelSearch = function() {
             console.log('Stop searching');
             $scope.cancelled = true;
+            $scope.lasttime = 'unknown';
+            $scope.search_result = [];
+            $scope.search_result_uuid = [];
+            $scope.result_counter = 0;
         };
         $scope.changeTopic = function() {
             $scope.cancelSearch();

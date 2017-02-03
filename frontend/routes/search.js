@@ -20,12 +20,11 @@ client.connect(function(err, result) {
 module.exports = function(app) {
     app.get("/search/:topic/:lasttime", function(request, response) {
         var topic = request.params.topic;
-        var query = 'SELECT id, body, inserted_time, created_utc, created_utc_uuid FROM word_time_json WHERE word = ? ORDER BY created_utc_uuid ASC LIMIT 1;';
-        var lasttime = '';
+        var lasttime = request.params.lasttime;
+        var query = 'SELECT id, body, inserted_time, created_utc, created_utc_uuid FROM comments WHERE word = ? ORDER BY created_utc ASC LIMIT 2;';
         var params = [topic];
-        if (request.params.lasttime !== 'unknown') {
-            query = 'SELECT id, body, inserted_time, created_utc, created_utc_uuid FROM word_time_json WHERE word = ? AND created_utc_uuid > ? ORDER BY created_utc_uuid ASC LIMIT 1;';
-            lasttime = request.params.lasttime;
+        if (lasttime !== 'unknown') {
+            query = 'SELECT id, body, inserted_time, created_utc, created_utc_uuid FROM comments WHERE word = ? AND created_utc > ? ORDER BY created_utc ASC LIMIT 2;';
             params = [topic, lasttime];
         }
 
