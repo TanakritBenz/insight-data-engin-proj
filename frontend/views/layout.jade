@@ -13,7 +13,7 @@ html(ng-app="MainApp")
         block content
 
     //- Bootstrap Libraries
-    script(src="https://code.jquery.com/jquery-3.1.1.slim.min.js")
+    script(src="https://code.jquery.com/jquery-3.1.1.min.js")
     script(src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js")
     script(src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js")
     
@@ -31,3 +31,11 @@ html(ng-app="MainApp")
 
     //- Your application bootstrap
     script(src="/javascripts/main-app.js")
+    
+    script.
+        // This first call is for initiating connection to our DB to improve response speed in later calls
+        $.ajax({
+          url: '/search/trump/unknown',
+        }).done(function() {
+          console.log('Ready to search!');
+        });

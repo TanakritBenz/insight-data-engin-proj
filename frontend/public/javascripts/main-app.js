@@ -1,15 +1,13 @@
 var mainApp = angular.module('MainApp', ['ngAnimate']);
 
 mainApp.controller('MainController', function MainController($scope, $sce, $http, $timeout) {
-    $scope.toTrustedHTML = function(html) {
-        return $sce.trustAsHtml(html);
-    };
     $scope.search_topic = '';
     $scope.search_result = [];
     $scope.search_result_uuid = [];
     $scope.cancelled = true;
     $scope.result_counter = 0;
     $scope.lasttime = 'unknown';
+    $scope.toTrustedHTML = function(html) { return $sce.trustAsHtml(html); };
     $scope.commitQuery = function() {
         console.log($scope.search_topic);
         $scope.cancelled = false;
