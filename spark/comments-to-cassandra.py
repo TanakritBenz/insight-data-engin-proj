@@ -1,12 +1,14 @@
 from __future__ import print_function
 import sys
 import json
+import copy
+import time
 import pprint
 import datetime
 from cassandra import ConsistencyLevel
-from cassandra.cluster import Cluster
+from cassandra.cluster import Cluster, NoHostAvailable
 from cassandra.query import BatchStatement
-from cassandra.util import datetime_from_timestamp, uuid_from_time, unix_time_from_uuid1
+from cassandra.util import uuid_from_time
 from pyspark import SparkConf, SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
@@ -16,67 +18,77 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from config import ES_HOST, CASSANDRA_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
 
 
-es = Elasticsearch([ES_HOST])
-cluster = Cluster([CASSANDRA_HOST])
-session = cluster.connect('reddit_comments')
-prepared_insert = session.prepare("""
-    INSERT INTO word_time_json (
-        inserted_time, id, word, created_utc_uuid,
-        created_utc, link_title, body, author,
-        subreddit, parent_id, over_18, ups,
-        downs, controversiality, gilded, score)
-    VALUES (toUnixTimestamp(now()),?,?,?,
-        ?,?,?,?,
-        ?,?,?,?,
-        ?,?,?,?)
-""")
+def writeToCassandra(comment):
+    try:
+        cluster = Cluster([CASSANDRA_HOST])
+        session = cluster.connect('reddit_comments')
+        prepared_insert = session.prepare("""
+            INSERT INTO comments (
+                inserted_time, id, word, created_utc_uuid,
+                created_utc, link_title, body, author,
+                subreddit, parent_id, over_18, ups,
+                downs, controversiality, gilded, score)
+            VALUES (toUnixTimestamp(now()),?,?,?,
+                ?,?,?,?,
+                ?,?,?,?,
+                ?,?,?,?)
+        """)
+        prepared_insert.consistency_level = ConsistencyLevel.ANY
+        batch = BatchStatement(consistency_level=ConsistencyLevel.ANY)
+        batch.add(prepared_insert, (
+            comment['id'],
+            comment['word'],
+            uuid_from_time(datetime.datetime.fromtimestamp(comment['created_utc'])),
+            datetime.datetime.fromtimestamp(comment['created_utc']),
+            comment['link_title'],
+            comment['body'],
+            comment['author'],
+            comment['subreddit'],
+            comment['parent_id'],
+            comment['over_18'],
+            comment['ups'],
+            comment['downs'],
+            comment['controversiality'],
+            comment['gilded'],
+            comment['score']
+        ))
+        session.execute(batch)
+    except NoHostAvailable:
+        print('lliilloic')
+    return comment
 
 
-def writeToCassandra(rdd):
-    if rdd.count() > 0:
-        for comment in rdd.collect():
-            tmp_doc = {'doc': {'comment': comment['body']}}
-            res = es.percolate(index="comment_percolators", doc_type="doctype", body=tmp_doc)
-            pprint.pprint(res)
-            if res['total'] > 0:
-                # batch = BatchStatement(consistency_level=ConsistencyLevel.ONE)
-                for matched_query in res['matches']:
-                #     batch.add(prepared_insert, (
-                #         comment['id'],
-                #         matched_query['_id'],
-                #         uuid_from_time(datetime.datetime.fromtimestamp(comment['created_utc'])),
-                #         datetime.datetime.fromtimestamp(comment['created_utc']),
-                #         comment['link_title'],
-                #         comment['body'],
-                #         comment['author'],
-                #         comment['subreddit'],
-                #         comment['parent_id'],
-                #         comment['over_18'],
-                #         comment['ups'],
-                #         comment['downs'],
-                #         comment['controversiality'],
-                #         comment['gilded'],
-                #         comment['score']
-                #     ))
-                # result = session.execute(batch)
-                    result = session.execute(prepared_insert, (
-                        comment['id'],
-                        matched_query['_id'],
-                        uuid_from_time(datetime.datetime.fromtimestamp(comment['created_utc'])),
-                        datetime.datetime.fromtimestamp(comment['created_utc']),
-                        comment['link_title'],
-                        comment['body'],
-                        comment['author'],
-                        comment['subreddit'],
-                        comment['parent_id'],
-                        comment['over_18'],
-                        comment['ups'],
-                        comment['downs'],
-                        comment['controversiality'],
-                        comment['gilded'],
-                        comment['score']
-                    ))
-                    pprint.pprint(result)
+def expandRDDbyMatch(x):
+    res = []
+    for match in x['matches']:
+        tmp_dict = copy.copy(x)
+        tmp_dict['word'] = match[u'_id']
+        res.append(tmp_dict)
+    return res
+
+
+def percolateComment(x):
+    es = Elasticsearch([ES_HOST])
+    tmp_doc = {'doc': {'comment': x['body']}}
+    percol_res = es.percolate(index="comment_percolators", doc_type="doctype", body=tmp_doc)
+    x['percol_res'] = percol_res
+    try:
+        x['match_total'] = x['percol_res']['total']
+        x['matches'] = x['percol_res']['matches']
+        del x['percol_res']
+    except KeyError:
+        pass
+    return x
+
+
+def processRDD(rdd):
+    last_rdd = (
+        rdd.map(percolateComment)
+           .filter(lambda x: x['match_total'] > 0)
+           .flatMap(expandRDDbyMatch)
+           .map(writeToCassandra)
+    )
+    last_rdd.count()
 
 
 if __name__ == "__main__":
@@ -88,7 +100,8 @@ if __name__ == "__main__":
     kvs = KafkaUtils.createDirectStream(ssc, [topic], {"metadata.broker.list": brokers})
     comments = (
         kvs.map(lambda x: json.loads(x[1]))
-           .foreachRDD(writeToCassandra)
+           .filter(lambda r: len(r) > 0)
+           .foreachRDD(processRDD)
     )
 
     ssc.start()
