@@ -16,10 +16,10 @@ cassandra_client.connect(function(err, result) {
 
 var es_client = new elasticsearch.Client({
     host: config.es.host,
-    log: 'trace'
+    // log: 'trace'
 });
 es_client.ping({
-    requestTimeout: 30000,
+    requestTimeout: 10000,
 }, function(error) {
     if (error) {
         console.error('elasticsearch cluster is down!');
@@ -31,12 +31,12 @@ es_client.ping({
 
 var registerQuery = function(topic, cb) {
     /*es_client.indices.create({
-        index: 'comment_percolators',
+        index: 'post_percolators',
         body: {
             "mappings": {
                 "doctype": {
                     "properties": {
-                        "comment": {
+                        "post": {
                             "type": "text"
                         }
                     }
@@ -54,16 +54,17 @@ var registerQuery = function(topic, cb) {
     }).then(function(body) {
         // since we told the client to ignore 404 errors, the
         // promise is resolved even if the index already exists
-        console.log("Created 'comment_percolators' in es");
+        console.log("Created 'post_percolators' in es");
     }, function(error) {});*/
 
     es_client.index({
-        index: 'comment_percolators',
+        index: 'post_percolators',
         type: 'queries',
+        id: topic,
         body: {
             "query": {
                 "match": {
-                    "comment": topic
+                    "post": topic
                 }
             }
         },
@@ -76,19 +77,35 @@ var registerQuery = function(topic, cb) {
 };
 
 
+
 module.exports = function(app) {
+
+    app.get("/search_docs/:doc_ids", function(request, response) {
+        var doc_ids = request.params.doc_ids.split(",");
+        cassandra_client.execute('SELECT * FROM docs WHERE doc_id IN ?', [doc_ids], function(error, result) {
+            if (error) {
+                response.status(404).send({
+                    'msg': error,
+                });
+            } else {
+                response.json({
+                    'response': result.rows,
+                });
+            }
+        });
+    });
+
     app.get("/search/:topic/:lasttime", function(request, response) {
         var topic = request.params.topic;
         var lasttime = request.params.lasttime;
-        var query = 'SELECT id, body, inserted_time, created_utc, created_utc_uuid FROM comments WHERE word = ? ORDER BY created_utc ASC LIMIT 2;';
+        var query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? ORDER BY created_utc ASC LIMIT 10;';
         var params = [topic];
         if (lasttime !== 'unknown') {
-            query = 'SELECT id, body, inserted_time, created_utc, created_utc_uuid FROM comments WHERE word = ? AND created_utc > ? ORDER BY created_utc ASC LIMIT 2;';
+            query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? AND created_utc > ? ORDER BY created_utc ASC LIMIT 10;';
             params = [topic, lasttime];
         } else {
             // First time searching for this topic, we register it into ES
-            registerQuery(topic, function(topic) {
-            });
+            registerQuery(topic, function(topic) {});
         }
 
         console.log('Searching for "' + topic + '"...');

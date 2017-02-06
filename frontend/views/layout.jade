@@ -4,7 +4,7 @@ html(ng-app="MainApp")
         title= title
         
         //- CSS Styling
-        link(rel="stylesheet", href="https://cdn.rawgit.com/novus/nvd3/v1.8.1/build/nv.d3.css")
+        //- link(rel="stylesheet", href="https://cdn.rawgit.com/novus/nvd3/v1.8.1/build/nv.d3.css")
         link(rel="stylesheet", href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css")
         link(rel="stylesheet", href="/stylesheets/flatly-bootstrap-theme.css")
         link(rel="stylesheet", href="/stylesheets/style.css")
@@ -13,6 +13,7 @@ html(ng-app="MainApp")
         block content
 
     //- Bootstrap Libraries
+    script(src="https://cdn.jsdelivr.net/lodash/4.17.4/lodash.core.min.js")
     script(src="https://code.jquery.com/jquery-3.1.1.min.js")
     script(src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js")
     script(src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js")
@@ -23,14 +24,15 @@ html(ng-app="MainApp")
     
     //- D3 Libraries
     script(src="https://d3js.org/d3.v4.js")
-    script(src="https://cdn.rawgit.com/novus/nvd3/v1.8.1/build/nv.d3.js")
-    //- script(src="https://code.highcharts.com")
+    //- script(src="https://cdn.rawgit.com/novus/nvd3/v1.8.1/build/nv.d3.js")
+    script(src="https://code.highcharts.com/stock/highstock.js")
     
     //- Moment.js
     script(src="/javascripts/moment.min.js")
 
     //- Your application bootstrap
     script(src="/javascripts/main-app.js")
+    script(src="/javascripts/graph.js")
     
     script.
         // This first call is for initiating connection to our DB to improve response speed in later calls
