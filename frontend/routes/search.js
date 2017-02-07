@@ -98,10 +98,10 @@ module.exports = function(app) {
     app.get("/search/:topic/:lasttime", function(request, response) {
         var topic = request.params.topic;
         var lasttime = request.params.lasttime;
-        var query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? ORDER BY created_utc ASC LIMIT 10;';
+        var query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? ORDER BY created_utc DESC LIMIT 10;';
         var params = [topic];
         if (lasttime !== 'unknown') {
-            query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? AND created_utc > ? ORDER BY created_utc ASC LIMIT 10;';
+            query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? AND created_utc > ? ORDER BY created_utc DESC LIMIT 10;';
             params = [topic, lasttime];
         } else {
             // First time searching for this topic, we register it into ES
