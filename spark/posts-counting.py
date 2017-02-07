@@ -1,9 +1,12 @@
 from __future__ import print_function
-import sys, json, copy, time, pprint, datetime
+import sys
+import json
+import time
+import pprint
+from datetime import datetime
 import pyspark_cassandra
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
-from cassandra.util import Date
 from pyspark import SparkConf, SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
@@ -13,13 +16,19 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from config import ES_HOST, CASSANDRA_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
 
 
+def roundTimeNearest5Sec(t):
+    # Assume t as a string in timestamp format
+    return (int(t) / 5) * 5
+
+
 def limitMatchesAt5(x):
     res = []
     if x[1]['match_total'] > 5:
         x[1]['match_total'] = 5
         x[1]['matches'] = x[1]['matches'][:5]
-    res.append( (x[0], x[1]['matches'], x[1]) )
+    res.append((x[0], x[1]['matches'], x[1]))
     return res
+
 
 def percolatePost(x):
     es = Elasticsearch([ES_HOST])
@@ -34,81 +43,80 @@ def percolatePost(x):
         pass
     return x
 
+
 def formatForCassandraPostsCountTable(x):
     tmp = x[0].split('_')
     x = {
         'word': tmp[0],
-        'date_created': Date(datetime.datetime.utcfromtimestamp(tmp[1]).date()).seconds,
+        'date_created': datetime.fromtimestamp(float(tmp[1])),
         'ups': x[1]
     }
     return x
 
+
 def expandRDDbyMatch(x):
     res = []
     for match in x[2]['matches']:
-        t = Date(datetime.datetime.utcfromtimestamp(x[2]['created_utc']).date()).seconds
-        res.append( (match[u'_id'] + '_' + str(t), x[2]['ups']) )
+        # Round down created_utc to nearest 5-sec interval in unixtime
+        t = roundTimeNearest5Sec(x[2]['created_utc'])
+        res.append((match[u'_id'] + '_' + str(t), x[2]['ups']))
     return res
 
+
 def fetchCassandra(words):
+    print('oillio ---->', words)
+    fetch_start_point = str(roundTimeNearest5Sec(int(time.time()) - 3600)) + '000'
     return_rdd = []
-    # build a list of futures
     futures = []
-    query = "SELECT word, toUnixTimestamp(date_created), ups FROM upvote_counts WHERE word=%s"
+    # query for count data since 1 hr ago
+    query = "SELECT word, toUnixTimestamp(date_created), ups FROM upvote_counts WHERE word=%s AND date_created>%s"
     for word in words:
-        futures.append(session.execute_async(query, [word]))
+        futures.append(session.execute_async(query, [word, int(fetch_start_point) - 1]))
 
-    def handle_success(rows):
-        record = rows[0]
-        try:
-            return_rdd.append( (record.word + '_' + str(record.date_created), record.ups) )
-        except Exception:
-            print("Failed to process record %s", record.id)
-            # don't re-raise errors in the callback
-
-    def handle_error(exception):
-        print("Failed to fetch record info: %s", exception)
-
-    # wait for them to complete and use the results
-    for future in futures:
-        future.add_callbacks(handle_success, handle_error)
+    try:
+        for future in futures:
+            rows = future.result()
+            record = rows[0]
+            pprint.pprint(record)
+            return_rdd.append((record.word + '_' + str(record.system_tounixtimestamp_date_created), record.ups))
+    except IndexError:
+        # If query has no result ("rows") it would throw an error. We will just ignore it.
+        pass
     return_rdd = sc.parallelize(return_rdd)
     return return_rdd
 
 
 def processRDD(rdd):
     start_time = time.time()
-
     rdd = (
         rdd.map(lambda x: (x['id'], x))
-           .reduceByKey(lambda x,y: x) #discard similar posts
+           .reduceByKey(lambda x, y: x)  # discard similar posts
            .filter(lambda x: x[1]['over_18'] == False)
            .map(percolatePost)
            .filter(lambda x: x[1]['match_total'] > 0)
            .flatMap(limitMatchesAt5)
     )
-    print('OG RDD --->', rdd.count(), rdd.take(3))
     all_words = rdd.flatMap(lambda x: x[1]).map(lambda x: x[u'_id']).distinct()
-    rdd = rdd.flatMap(expandRDDbyMatch).reduceByKey(lambda x,y: x+y)
-    print('RETRO RDD --->', rdd.count(), rdd.take(3))
-    print('ALL WORDS --->', all_words.collect())
-    rdd_from_db = fetchCassandra(all_words.collect())
-    print('Fresh from DB --->', rdd_from_db.count(), rdd_from_db.take(3))
+    rdd = rdd.flatMap(expandRDDbyMatch).reduceByKey(lambda x, y: x + y)
 
-    # .map(formatForCassandraPostsCountTable)
-
-
-    # print('#posts processed =>', rdd.count())
-
-    # rdd.saveToCassandra(
-    #     keyspace="reddit",
-    #     table="upvote_counts",
-    #     consistency_level=ConsistencyLevel.ANY,
-    #     batch_grouping_key='partition',
-    #     ttl=300000
-    # )
-
-    print("--- %s seconds ---" % (time.time() - start_time))
+    if not all_words.isEmpty():
+        print('OG RDD ---->', rdd.count(), rdd.take(3))
+        rdd_from_db = fetchCassandra(all_words.collect())
+        # Change key 'word_1486339200000' to 'word_1486339200'
+        rdd_from_db = rdd_from_db.map(lambda x: (x[0][:len(x[0]) - 3], x[1]))
+        print('fresh from DB ---->', rdd_from_db.count(), rdd_from_db.take(3))
+        rdd = rdd.union(rdd_from_db).reduceByKey(lambda x, y: x + y)
+        print('RETRO RDD ---->', rdd.count(), rdd.take(10))
+        rdd = rdd.map(formatForCassandraPostsCountTable)
+        print('FINAL RDD ---->', rdd.count(), rdd.take(10))
+        rdd.saveToCassandra(
+            keyspace="reddit",
+            table="upvote_counts",
+            consistency_level=ConsistencyLevel.ANY,
+            batch_grouping_key='partition',
+            ttl=300000
+        )
+        print("--- %s seconds ---" % (time.time() - start_time))
 
 if __name__ == "__main__":
     cluster = Cluster([CASSANDRA_HOST])
