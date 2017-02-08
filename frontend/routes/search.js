@@ -79,6 +79,26 @@ var registerQuery = function(topic, cb) {
 
 
 module.exports = function(app) {
+    app.get("/get_graph_data/:topic/:lasttime/:currenttime", function(request, response) {
+        var topic = request.params.topic;
+        var lasttime = request.params.lasttime;
+        var currenttime = request.params.currenttime;
+        query = 'SELECT COUNT(*) FROM posts WHERE query = ? AND created_utc > ? AND created_utc < ? ORDER BY created_utc DESC;';
+        params = [topic, lasttime, currenttime];
+        cassandra_client.execute(query, params, {
+            prepare: true
+        }, function(error, result) {
+            if (error) {
+                response.status(404).send({
+                    'msg': error,
+                });
+            } else {
+                response.json({
+                    'res': result.rows,
+                });
+            }
+        });
+    });
 
     app.get("/search_docs/:doc_ids", function(request, response) {
         var doc_ids = request.params.doc_ids.split(",");
@@ -89,25 +109,28 @@ module.exports = function(app) {
                 });
             } else {
                 response.json({
-                    'response': result.rows,
+                    'res': result.rows,
                 });
             }
         });
     });
 
-    app.get("/search/:topic/:lasttime", function(request, response) {
-        var topic = request.params.topic;
+    app.get("/search/:topic/:lasttime/:first_call", function(request, response) {
+        var topic = request.params.topic.split(',');
         var lasttime = request.params.lasttime;
-        var query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? ORDER BY created_utc DESC LIMIT 10;';
-        var params = [topic];
-        if (lasttime !== 'unknown') {
-            query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query = ? AND created_utc > ? ORDER BY created_utc DESC LIMIT 10;';
-            params = [topic, lasttime];
-        } else {
+        var first_call = request.params.first_call;
+        query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query IN ? AND created_utc > ?;';
+        params = [topic, lasttime];
+        if (first_call === '1') {
             // First time searching for this topic, we register it into ES
-            registerQuery(topic, function(topic) {});
+            for (var i = 0; i < topic.length; i++) {
+                registerQuery(topic[i], function() {});
+            }
         }
-
+        if (lasttime ==='unknown') {
+            query = 'SELECT query, created_utc, doc_id, subreddit FROM posts WHERE query IN ?;';
+            params = [topic];
+        }
         console.log('Searching for "' + topic + '"...');
         cassandra_client.execute(query, params, {
             prepare: true
@@ -118,7 +141,7 @@ module.exports = function(app) {
                 });
             } else {
                 response.json({
-                    'response': result.rows,
+                    'res': result.rows,
                 });
             }
         });

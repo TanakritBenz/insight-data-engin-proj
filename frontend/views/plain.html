@@ -17,35 +17,36 @@
     </div>
 </div>
 <br/>
-<div layout="row" style="font-size: 17px;">
-    <div class="col">
-        <table ng-show="search_result.length > 0">
-            <col width="22%">
-            <col width="25%">
-            <col width="58%">
-            <tr align="left">
-                <th>Time</th>
-                <th>Link</th>
-                <th>Post</th>
-            </tr>
-            <tr ng-repeat="post in search_result | orderBy:'ui_id':true | limitTo:5 track by $index" class="text-center">
-                <td ng-hide="isEmpty(post.title)" align="left">{{post.timestamp}}</td>
-                <td ng-hide="isEmpty(post.title)" align="left">
-                    <a target="_blank" href="{{'http://reddit.com'+post.permalink}}">
-                        <div>
-                            {{ post.permalink | limitTo: 20 }}{{post.permalink.length > 20 ? '...' : ''}}
-                        </div>
-                    </a>
-                </td>
-                <td ng-bind-html="toTrustedHTML(post.title)" align="left"></td>
-            </tr>
-        </table>
+<div layout="row" ng-show="search_result.length > 0">
+    <div class="col" >
+        <div id="graph-container"  style="background-color:#fff; border-radius: 5px; padding: 10px;"></div>
     </div>
 </div>
 <br/>
-<div layout="row">
+<div layout="row" ng-show="search_result.length > 0">
     <div class="col">
-        <div id="graph-container">
+        <div style="background-color:#fff; border-radius: 5px;">
+            <table style="margin: 10px;">
+                <col width="22%">
+                <col width="25%">
+                <col width="58%">
+                <tr align="center" style="font-size: 25px;">
+                    <th>Time</th>
+                    <th>Link</th>
+                    <th>Post</th>
+                </tr>
+                <tr ng-repeat="post in search_result | orderBy:'timestamp':true | limitTo:10 track by $index" class="text-center" style="font-size: 20px;">
+                    <td ng-hide="isEmpty(post.title)" align="left">{{post.timestamp}}</td>
+                    <td ng-hide="isEmpty(post.title)" align="left">
+                        <a target="_blank" href="{{'http://reddit.com'+post.permalink}}">
+                            <div>
+                                {{ post.permalink | limitTo: 20 }}{{post.permalink.length > 20 ? '...' : ''}}
+                            </div>
+                        </a>
+                    </td>
+                    <td ng-bind-html="toTrustedHTML(post.title)" align="left"></td>
+                </tr>
+            </table>
         </div>
     </div>
 </div>

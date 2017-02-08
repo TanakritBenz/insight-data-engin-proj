@@ -13,7 +13,7 @@ html(ng-app="MainApp")
         block content
 
     //- Bootstrap Libraries
-    script(src="https://cdn.jsdelivr.net/lodash/4.17.4/lodash.core.min.js")
+    script(src="https://cdn.jsdelivr.net/lodash/4.17.4/lodash.min.js")
     script(src="https://code.jquery.com/jquery-3.1.1.min.js")
     script(src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js")
     script(src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js")
@@ -24,20 +24,22 @@ html(ng-app="MainApp")
     
     //- D3 Libraries
     script(src="https://d3js.org/d3.v4.js")
+    script(src="https://cdn.plot.ly/plotly-latest.min.js")
     //- script(src="https://cdn.rawgit.com/novus/nvd3/v1.8.1/build/nv.d3.js")
-    script(src="https://code.highcharts.com/stock/highstock.js")
+    script(src="https://code.highcharts.com/highcharts.js")
     
     //- Moment.js
     script(src="/javascripts/moment.min.js")
 
     //- Your application bootstrap
-    script(src="/javascripts/main-app.js")
     script(src="/javascripts/graph.js")
+    script(src="/javascripts/main-app.js")
+    
     
     script.
         // This first call is for initiating connection to our DB to improve response speed in later calls
         $.ajax({
-          url: '/search/tanakrit/unknown',
+          url: '/search/tanakrit/unknown/0',
         }).done(function() {
           console.log('Ready to search!');
         });
