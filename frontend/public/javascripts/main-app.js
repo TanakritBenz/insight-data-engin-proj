@@ -1,156 +1,145 @@
 var mainApp = angular.module('MainApp', ['ngAnimate']);
 
 mainApp.controller('MainController', function MainController($scope, $sce, $http, $timeout) {
-    $scope.search_topic = '';
+    $scope.search_topics = '';
     $scope.search_result = [];
-    $scope.search_result_uuid = [];
     $scope.search_result_docid = [];
     $scope.cancelled = true;
-    $scope.first_call = '1';
     $scope.result_counter = 0;
-    $scope.lasttime = 'unknown';
-    $scope.series = [];
-    $scope.xAxis = [];
-    $scope.toTrustedHTML = function(html) {
-        return $sce.trustAsHtml(html);
-    };
-    $scope.isEmpty = function(element) {
-        return _.isEmpty(element);
-    };
-    $scope.getGraphData = function(topic, time, cb) {
+    $scope.lasttime_map = {};
+    $scope.seriesOptions1 = [];
+    $scope.seriesOptions2 = [];
+    $scope.toTrustedHTML = function(html) {return $sce.trustAsHtml(html);};
+    $scope.isEmpty = function(element) {return _.isEmpty(element);};
+
+
+    $scope.search_call_wrapper = function(topic, lasttime, cb) {
         $http({
             method: 'GET',
-            url: '/get_graph_data/' + topic + '/' + moment(time).subtract(5, 'minutes').format() + '/' + time.format()
+            url: '/search/' + topic + '/' + lasttime
         }).then(function successCallback(response) {
             if (response.data.hasOwnProperty('res')) {
                 var data = response.data.res;
-                console.log('upvote data: ', data);
-                if (!_.isEmpty(data)) {
-                    var target = _.find($scope.series, function(o) {
-                        return o.name === topic;
-                    });
-                    target.data.push(parseInt(data[0].count));
-                    $scope.xAxis.push(time.utc().format());
-                    $scope.xAxis = _.uniq($scope.xAxis);
-                    console.log('plot :', $scope.series, $scope.xAxis);
+                if (data.length > 0) {
+                    data = _.sortBy(data, function(datum) {return moment.utc(datum.created_utc);});
+                    for (var i = 0; i < data.length; i++) {
+                        data[i].ui_id = $scope.result_counter;
+                        data[i].timestamp = moment.utc(data[i].created_utc).format('DD/MM/YY, HH:mm:ss');
+                        $scope.search_result.push(data[i]);
+                        $scope.result_counter++;
+
+                        var index = data[i].title.indexOf(topic);
+                        if (index >= 0) {
+                            data[i].title = data[i].title.substring(0, index) + "<span class='highlight'>" + data[i].title.substring(index, index + topic.length) + "</span>" + data[i].title.substring(index + topic.length);
+                        }
+                    }
+                    var lasttime_max = moment.max([moment.utc(data[0].created_utc), moment.utc(data[data.length-1].created_utc)]);
+                    cb(lasttime_max);
                 }
-                cb();
             }
+        }, function errorCallback(response) {
+            // called asynchronously if an error occurs
+            // or server returns response with an error status.
+            console.log('Search failed!');
+            console.log(response);
+        });
+    };
+
+    $scope.regis_query_wrapper = function(topic) {
+        $http({
+            method: 'GET',
+            url: '/register_query/' + topic
+        }).then(function successCallback(response) {
+            // console.log(response);
         }, function errorCallback(response) {
             console.log(response);
         });
+    };
 
+    $scope.get_chart_data_wrapper = function(topic, cb) {
+        $http({
+            method: 'GET',
+            url: '/get_graph_data/' + topic
+        }).then(function successCallback(response) {
+            cb(response.data.res);
+        }, function errorCallback(response) {
+            console.log(response);
+        });
     };
 
     $scope.commitQuery = function() {
-        $scope.series = _.map($scope.search_topic.split(','), function(topic){ return {'name': topic, 'data': []}; });
         $scope.cancelled = false;
+        var topics = $scope.search_topics.split(',');
+
+        // Register each topic to ES
+        _.forEach(topics, function(topic, i) {
+            $scope.seriesOptions1[i] = { 'name': topic, 'data': [] };
+            $scope.seriesOptions2[i] = { 'name': topic, 'data': [] };
+            $scope.regis_query_wrapper(topic);
+            $scope.get_chart_data_wrapper(topic, function(data){
+                var serie1 = _.find($scope.seriesOptions1, function(o) { return o.name == topic; });
+                var serie2 = _.find($scope.seriesOptions2, function(o) { return o.name == topic; });
+                var tmp_data1 = [];
+                var tmp_data2 = [];
+                console.log('data', data);
+                _.forEach(data, function(datum){
+                    tmp_data1.push([parseInt(datum['system.tounixtimestamp(time_utc)']), datum.ups]);
+                    tmp_data2.push([parseInt(datum['system.tounixtimestamp(time_utc)']), datum.ups+datum.downs]);
+                });
+                serie1.data = tmp_data1;
+                serie2.data = tmp_data2;
+                if (i === topics.length-1){
+                    drawChart1($scope);
+                    drawChart2($scope);
+                }
+                console.log('series1', $scope.seriesOptions1);
+                console.log('series2', $scope.seriesOptions2);
+            });
+        });
+
+        // Loop call Cassandra for new Reddit posts data
         $scope.recTimeoutFunction = function($scope) {
             return $timeout(function($scope) {
-                //only start new pulse if user hasn't cancelled
-                if (!$scope.cancelled) {
-                    if (moment.isMoment($scope.lasttime)) {
-                        $scope.lasttime = $scope.lasttime.utc().format();
-                    }
-                    $http({
-                        method: 'GET',
-                        url: '/search/' + $scope.search_topic + '/' + $scope.lasttime + '/' + $scope.first_call
-                    }).then(function successCallback(response) {
-                        if (response.data.hasOwnProperty('res')) {
-                            var data = response.data.res;
-                            if (data.length > 0) {
-                                for (var i = 0; i < data.length; i++) {
-                                    if ($scope.search_result_uuid.indexOf(data[i].doc_id) === -1) {
-                                        $scope.search_result_uuid.push(data[i].doc_id);
-                                        data[i].ui_id = $scope.result_counter;
-                                        data[i].timestamp = moment.utc(data[i].created_utc).format('DD/MM/YY, h:mm:ss a');
-                                        $scope.search_result.push(data[i]);
-                                        $scope.result_counter++;
-                                        if (moment.isMoment($scope.lasttime)) {
-                                            $scope.lasttime = moment.max([$scope.lasttime, moment.utc(data[i].created_utc)]);
-                                        } else {
-                                            $scope.lasttime = moment.utc(data[i].created_utc);
-                                        }
-                                    }
+                if (!$scope.cancelled) { //only start new pulse if user hasn't cancelled
+                    _.forEach(topics, function(topic) {
+                        if (moment.isMoment($scope.lasttime_map[topic])) {
+                            $scope.search_call_wrapper(topic, $scope.lasttime_map[topic].utc().format(), function(lasttime_max){
+                                $scope.lasttime_map[topic] = moment.max([lasttime_max, $scope.lasttime_map[topic]]);
+                            });
+                        } else {
+                            var lasttime = 'unknown';
+                            $scope.lasttime_map[topic] = 'unknown';
+                            $scope.search_call_wrapper(topic, lasttime, function(lasttime_max){
+                                // console.log(lasttime_max);
+                                // console.log($scope.lasttime_map[topic]);
+                                if ($scope.lasttime_map[topic] === 'unknown'){
+                                    $scope.lasttime_map[topic] = lasttime_max;
+                                } else {
+                                    $scope.lasttime_map[topic] = moment.max([lasttime_max, $scope.lasttime_map[topic]]);
                                 }
-                                $scope.first_call = '0';
-                                $scope.search_result_docid = $($scope.search_result_uuid).not($scope.search_result_docid).get();
-                                $scope.search_result_docid = $scope.search_result_docid.join();
-                                if (!_.isEmpty($scope.search_result_docid)) {
-                                    $http({
-                                        method: 'GET',
-                                        url: '/search_docs/' + $scope.search_result_docid
-                                    }).then(function successCallback(response) {
-                                        if (response.data.hasOwnProperty('res')) {
-                                            var data = response.data.res;
-                                            for (var i = 0; i < data.length; i++) {
-                                                // _.forEach($scope.search_topic, function(topic) {
-                                                //     var index = data[i].title.indexOf(topic);
-                                                //     if (index >= 0) {
-                                                //         data[i].title = data[i].title.substring(0, index) + "<span class='highlight'>" + data[i].title.substring(index, index + topic.length) + "</span>" + data[i].title.substring(index + topic.length);
-                                                //     }
-                                                // });
-
-                                                var target = _.find($scope.search_result, {
-                                                    'doc_id': data[i].doc_id
-                                                });
-                                                if (!_.isEmpty(target)) {
-                                                    target.title = data[i].title;
-                                                    target.author = data[i].author;
-                                                    target.permalink = data[i].permalink;
-                                                    target.url = data[i].url;
-                                                    target.ups = data[i].ups;
-                                                    target.downs = data[i].downs;
-                                                    target.score = data[i].score;
-                                                    target.gilded = data[i].gilded;
-                                                }
-                                            }
-                                        }
-                                    }, function errorCallback(response) {
-                                        // called asynchronously if an error occurs
-                                        // or server returns response with an error status.
-                                        console.log('Search failed!');
-                                        console.log(response);
-                                    });
-                                }
-                                _.forEach($scope.search_topic.split(','), function(topic) {
-                                    if (moment.isMoment($scope.lasttime)) {
-                                        $scope.getGraphData(topic, $scope.lasttime, function(){
-                                            drawChart($scope);
-                                        });
-                                    }
-                                });
-                            }
+                            });
                         }
-                        $scope.recTimeoutFunction($scope);
-                    }, function errorCallback(response) {
-                        // called asynchronously if an error occurs
-                        // or server returns response with an error status.
-                        console.log('Search failed!');
-                        console.log(response);
                     });
+                    $scope.recTimeoutFunction($scope);
                 }
-            }, 2000, true, $scope);
+            }, 500, true, $scope);
         };
-        //initially call the timeout function:
-        $scope.recTimeoutFunction($scope);
+        $scope.recTimeoutFunction($scope); //initially call the timeout function:
 
-        //function for the user to cancel pulsing messages
         $scope.cancelSearch = function() {
             console.log('Cancel searching');
             $scope.cancelled = true;
-            $scope.lasttime = 'unknown';
-            $scope.first_call = '1';
+            $scope.lasttime_map = {};
             $scope.search_result = [];
-            $scope.search_result_uuid = [];
             $scope.result_counter = 0;
-            $scope.series = [];
-            $scope.xAxis = [];
+            $scope.seriesOptions1 = [];
+            $scope.seriesOptions2 = [];
         };
 
         $scope.stopSearch = function() {
             console.log('Stop searching');
             $scope.cancelled = true;
         };
+
     };
 });

@@ -1,31 +1,73 @@
-var drawChart = function($scope) {
-    Highcharts.chart('graph-container', {
-        title: {
-            text: 'Number of Upvotes per 5 Seconds',
-            x: -20 //center
+var drawChart1 = function($scope) {
+    Highcharts.stockChart('graph-container1', {
+
+        rangeSelector: {
+            selected: 4
         },
-        xAxis: {
-            categories: $scope.xAxis
-        },
+
         yAxis: {
-            title: {
-                text: 'upvotes'
+            labels: {
+                formatter: function() {
+                    return (this.value > 0 ? ' + ' : '') + this.value + '%';
+                }
             },
             plotLines: [{
                 value: 0,
-                width: 1,
-                color: '#808080'
-            }]
+                width: 2,
+                color: 'silver'
+                }]
         },
+
+        plotOptions: {
+            series: {
+                compare: 'percent',
+                showInNavigator: true
+            }
+        },
+
         tooltip: {
-            valueSuffix: 'upvotes'
+            pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+            valueDecimals: 1,
+            split: true
         },
-        legend: {
-            layout: 'vertical',
-            align: 'right',
-            verticalAlign: 'middle',
-            borderWidth: 0
+
+        series: $scope.seriesOptions1
+    });
+};
+
+var drawChart2 = function($scope) {
+    Highcharts.stockChart('graph-container2', {
+
+        rangeSelector: {
+            selected: 4
         },
-        series: $scope.series
+
+        yAxis: {
+            labels: {
+                formatter: function() {
+                    return (this.value > 0 ? ' + ' : '') + this.value + '%';
+                }
+            },
+            plotLines: [{
+                value: 0,
+                width: 2,
+                color: 'silver'
+                }]
+        },
+
+        plotOptions: {
+            series: {
+                compare: 'percent',
+                showInNavigator: true
+            }
+        },
+
+        tooltip: {
+            pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+            valueDecimals: 1,
+            split: true
+        },
+
+        series: $scope.seriesOptions2
     });
 };

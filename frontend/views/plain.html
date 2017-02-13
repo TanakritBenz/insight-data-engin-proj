@@ -8,7 +8,7 @@
 <div layout="row">
     <div class="col">
         <div class="input-group input-group-lg">
-            <input ng-model="search_topic" ng-change="cancelSearch()" ng-keyup="$event.keyCode == 13 && commitQuery()" type="text" class="form-control" placeholder="Search Topic">
+            <input ng-model="search_topics" ng-change="cancelSearch()" ng-keyup="$event.keyCode == 13 && commitQuery()" type="text" class="form-control" placeholder="Search Topic">
             <span class="input-group-btn">
                 <button ng-click="stopSearch()" ng-hide="cancelled" class="btn btn-warning " type="button">Stop</button>
                 <button ng-click="commitQuery()" class="btn btn-primary" type="button">Go!</button>
@@ -18,35 +18,49 @@
 </div>
 <br/>
 <div layout="row" ng-show="search_result.length > 0">
-    <div class="col" >
-        <div id="graph-container"  style="background-color:#fff; border-radius: 5px; padding: 10px;"></div>
+    <div class="col">
+        <div style="background-color:#fff; border-radius: 5px;">
+            <table style="margin: 10px;">
+                <col width="15%">
+                <col width="24%">
+                <col width="56%">
+                <col width="5%">
+                <col width="5%">
+                <tr style="font-size: 35px;">
+                    <th style="color: #fe698d; text-align: left;">Time</th>
+                    <th style="color: #16c98d; text-align: left;">Link</th>
+                    <th style="color: #684e79; text-align: left;">Post title</th>
+                    <th style="color: #fa5e5b; text-align: center;"><i class="fa fa-arrow-up" aria-hidden="true"></i></th>
+                    <th style="color: #288ad6; text-align: center;"><i class="fa fa-arrow-down" aria-hidden="true"></i></th>
+                </tr>
+                <tr ng-repeat="post in search_result | orderBy:'created_utc':true | limitTo:10 track by $index" class="text-center" style="font-size: 23px;">
+                    <td ng-hide="isEmpty(post.title)" align="left" style="color: #fe698d; font-family: monospace !important; font-size: 20px;">{{post.timestamp}}</td>
+                    <td ng-hide="isEmpty(post.title)" align="left" style="font-family: monospace !important; font-size: 20px;">
+                        <a target="_blank" href="{{post.url}}" style="color: #16c98d; text-decoration: none;">
+                            <div>
+                                {{ post.url | limitTo: 28 }}{{post.url.length > 28 ? '...' : ''}}
+                            </div>
+                        </a>
+                    </td>
+                    <td ng-hide="isEmpty(post.title)" align="left">
+                        <a target="_blank" href="{{'http://reddit.com'+post.permalink}}" style="color: #684e79; text-decoration: none;">
+                            <div ng-bind-html="toTrustedHTML(post.title)">
+                            </div>
+                        </a>
+                    </td>
+                    <td ng-hide="isEmpty(post.title)" align="center" style="color: #fa5e5b;">{{post.ups}}</td>
+                    <td ng-hide="isEmpty(post.title)" align="center" style="color: #288ad6;">{{post.downs}}</td>
+                </tr>
+            </table>
+        </div>
     </div>
 </div>
 <br/>
 <div layout="row" ng-show="search_result.length > 0">
-    <div class="col">
-        <div style="background-color:#fff; border-radius: 5px;">
-            <table style="margin: 10px;">
-                <col width="22%">
-                <col width="25%">
-                <col width="58%">
-                <tr align="center" style="font-size: 25px;">
-                    <th>Time</th>
-                    <th>Link</th>
-                    <th>Post</th>
-                </tr>
-                <tr ng-repeat="post in search_result | orderBy:'timestamp':true | limitTo:10 track by $index" class="text-center" style="font-size: 20px;">
-                    <td ng-hide="isEmpty(post.title)" align="left">{{post.timestamp}}</td>
-                    <td ng-hide="isEmpty(post.title)" align="left">
-                        <a target="_blank" href="{{'http://reddit.com'+post.permalink}}">
-                            <div>
-                                {{ post.permalink | limitTo: 20 }}{{post.permalink.length > 20 ? '...' : ''}}
-                            </div>
-                        </a>
-                    </td>
-                    <td ng-bind-html="toTrustedHTML(post.title)" align="left"></td>
-                </tr>
-            </table>
-        </div>
+    <div class="col-md-6 text-center">
+        <div id="graph-container1" style="background-color:#fff; border-radius: 5px; padding: 10px;"></div>
+    </div>
+    <div class="col-md-6 text-center">
+        <div id="graph-container2" style="background-color:#fff; border-radius: 5px; padding: 10px;"></div>
     </div>
 </div>

@@ -6,3 +6,12 @@ html, body {
 .highlight {
     background-color: #feef6d;
 }
+
+.highcharts-container {
+    width:100% !important;
+    height:100% !important;
+}
+
+table th {
+    /*text-align: center;*/
+}
