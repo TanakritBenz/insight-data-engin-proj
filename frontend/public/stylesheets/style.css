@@ -12,6 +12,7 @@ html, body {
     height:100% !important;
 }
 
-table th {
-    /*text-align: center;*/
+.highcharts-root {
+    width:100% !important;
+    height:100% !important;
 }

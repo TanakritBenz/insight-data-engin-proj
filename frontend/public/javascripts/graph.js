@@ -1,5 +1,5 @@
 var drawChart1 = function($scope) {
-    Highcharts.stockChart('graph-container1', {
+    return Highcharts.stockChart('graph-container1', {
 
         rangeSelector: {
             selected: 4
@@ -36,7 +36,7 @@ var drawChart1 = function($scope) {
 };
 
 var drawChart2 = function($scope) {
-    Highcharts.stockChart('graph-container2', {
+    return Highcharts.stockChart('graph-container2', {
 
         rangeSelector: {
             selected: 4

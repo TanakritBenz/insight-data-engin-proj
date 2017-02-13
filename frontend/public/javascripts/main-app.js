@@ -3,12 +3,12 @@ var mainApp = angular.module('MainApp', ['ngAnimate']);
 mainApp.controller('MainController', function MainController($scope, $sce, $http, $timeout) {
     $scope.search_topics = '';
     $scope.search_result = [];
-    $scope.search_result_docid = [];
     $scope.cancelled = true;
     $scope.result_counter = 0;
     $scope.lasttime_map = {};
     $scope.seriesOptions1 = [];
     $scope.seriesOptions2 = [];
+    $scope.graphReady = false;
     $scope.toTrustedHTML = function(html) {return $sce.trustAsHtml(html);};
     $scope.isEmpty = function(element) {return _.isEmpty(element);};
 
@@ -22,7 +22,11 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
                 var data = response.data.res;
                 if (data.length > 0) {
                     data = _.sortBy(data, function(datum) {return moment.utc(datum.created_utc);});
+                    var doc_ids = _.map($scope.search_result, 'doc_id');
                     for (var i = 0; i < data.length; i++) {
+                        if (_.includes(doc_ids, data[i].doc_id)) {
+                            continue;
+                        }
                         data[i].ui_id = $scope.result_counter;
                         data[i].timestamp = moment.utc(data[i].created_utc).format('DD/MM/YY, HH:mm:ss');
                         $scope.search_result.push(data[i]);
@@ -77,6 +81,7 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
             $scope.seriesOptions2[i] = { 'name': topic, 'data': [] };
             $scope.regis_query_wrapper(topic);
             $scope.get_chart_data_wrapper(topic, function(data){
+                $scope.graphReady = true;
                 var serie1 = _.find($scope.seriesOptions1, function(o) { return o.name == topic; });
                 var serie2 = _.find($scope.seriesOptions2, function(o) { return o.name == topic; });
                 var tmp_data1 = [];
@@ -89,8 +94,12 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
                 serie1.data = tmp_data1;
                 serie2.data = tmp_data2;
                 if (i === topics.length-1){
-                    drawChart1($scope);
-                    drawChart2($scope);
+                    setTimeout(function(){
+                        var chart1 = drawChart1($scope);
+                        var chart2 = drawChart2($scope);
+                        // chart1.reflow();
+                        // chart2.reflow();
+                    }, 100);
                 }
                 console.log('series1', $scope.seriesOptions1);
                 console.log('series2', $scope.seriesOptions2);
@@ -100,6 +109,7 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
         // Loop call Cassandra for new Reddit posts data
         $scope.recTimeoutFunction = function($scope) {
             return $timeout(function($scope) {
+                // $(window).resize();
                 if (!$scope.cancelled) { //only start new pulse if user hasn't cancelled
                     _.forEach(topics, function(topic) {
                         if (moment.isMoment($scope.lasttime_map[topic])) {
@@ -134,6 +144,7 @@ mainApp.controller('MainController', function MainController($scope, $sce, $http
             $scope.result_counter = 0;
             $scope.seriesOptions1 = [];
             $scope.seriesOptions2 = [];
+            $scope.graphReady = false;
         };
 
         $scope.stopSearch = function() {
