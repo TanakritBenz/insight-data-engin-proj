@@ -1,14 +1,16 @@
 from __future__ import print_function
-import sys, json, copy, time, pprint, datetime
+import sys, json, copy, time, datetime
+from pprint import pprint
 import pyspark_cassandra
 from cassandra import ConsistencyLevel
 from pyspark import SparkConf, SparkContext
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, ConnectionError
 from os import path
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-from config import ES_HOST, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
+from config import ES_HOST_1, ES_HOST_2, ES_HOST_3, ES_HOST_4, SPARK_MASTER, KAFKA_BROKER_1, KAFKA_BROKER_2, KAFKA_BROKER_3
+
 
 
 def expandRDDbyMatch(x):
@@ -19,14 +21,16 @@ def expandRDDbyMatch(x):
         res.append((x[0], tmp_dict))
     return res
 
+
 def limitMatchesAt5(x):
     if x[1]['match_total'] > 5:
         x[1]['match_total'] = 5
         x[1]['matches'] = x[1]['matches'][:5]
     return x
 
+
 def percolatePost(x):
-    es = Elasticsearch([ES_HOST])
+    es = Elasticsearch([ES_HOST_1, ES_HOST_2, ES_HOST_3, ES_HOST_4], max_retries=20)
     tmp_doc = {'doc': {'post': x[1]['title']}}
     percol_res = es.percolate(index="post_percolators", doc_type="doctype", body=tmp_doc)
     x[1]['percol_res'] = percol_res
@@ -38,30 +42,22 @@ def percolatePost(x):
         pass
     return x
 
+
 def formatForCassandraPostsTable(x):
     x = {
         'query': x[1]['query'],
-        'created_utc': datetime.datetime.fromtimestamp(x[1]['created_utc']),
+        'created_utc': datetime.datetime.fromtimestamp(float(x[1]['created_utc'])),
         'doc_id': x[0],
         'subreddit': x[1]['subreddit'],
-    }
-    return x
-
-def formatForCassandraDocsTable(x):
-    x = {
-        'doc_id': x[0],
         'title': x[1]['title'],
         'permalink': x[1]['permalink'],
         'url': x[1]['url'],
         'author': x[1]['author'],
-        'subreddit': x[1]['subreddit'],
-        'created_utc': datetime.datetime.fromtimestamp(x[1]['created_utc']),
-        'ups': x[1]['ups'],
-        'downs': x[1]['downs'],
-        'gilded': x[1]['gilded'],
-        'score': x[1]['score'],
+        'ups': int(x[1]['ups']),
+        'downs': int(x[1]['downs']),
     }
     return x
+
 
 def processRDD(rdd):
     start_time = time.time()
@@ -71,39 +67,27 @@ def processRDD(rdd):
            .filter(lambda x: x[1]['over_18'] == False)
            .map(percolatePost)
            .filter(lambda x: x[1]['match_total'] > 0)
-    )
-
-    doc_rdd = rdd.map(formatForCassandraDocsTable)
-    pprint.pprint(doc_rdd.take(3))
-    print('#docs processed => ', doc_rdd.count())
-
-    post_rdd = (
-        rdd.map(limitMatchesAt5)
+           .map(limitMatchesAt5)
            .flatMap(expandRDDbyMatch)
            .map(formatForCassandraPostsTable)
     )
-    pprint.pprint(post_rdd.take(3))
-    print('#posts processed =>', post_rdd.count())
+    print("--- Compute time: %s seconds ---" % (time.time() - start_time))
 
-    post_rdd.saveToCassandra(
+    start_time2 = time.time()
+    rdd.saveToCassandra(
         keyspace="reddit",
         table="posts",
-        consistency_level=ConsistencyLevel.ANY,
-        batch_grouping_key='partition',
-        ttl=300000
+        consistency_level=ConsistencyLevel.ANY
     )
 
-    doc_rdd.saveToCassandra(
-        keyspace="reddit",
-        table="docs",
-        consistency_level=ConsistencyLevel.ANY,
-        batch_grouping_key='partition',
-        ttl=300000
-    )
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("--- Save to Cassandra: %s seconds ---" % (time.time() - start_time2))
+
+    print("--- Total %s seconds ---" % (time.time() - start_time))
+
 
 if __name__ == "__main__":
-    conf = SparkConf().setAppName("Reddit Posts Digest Process").setMaster(SPARK_MASTER)
+    conf = SparkConf().setAppName("Reddit Posts Digest").setMaster(SPARK_MASTER)
+    conf.set("spark.shuffle.io.maxRetries", 20)
     sc = SparkContext(conf=conf)
     ssc = StreamingContext(sc, 2)
     brokers = KAFKA_BROKER_1 + ',' + KAFKA_BROKER_2 + ',' + KAFKA_BROKER_3
