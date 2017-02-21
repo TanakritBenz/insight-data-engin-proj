@@ -44,7 +44,7 @@ if __name__ == "__main__":
                .reduceByKey(lambda a, b: (a[0]+b[0], a[1]+b[1]))
                .map(formatForCassandraPostsAggTable)
         )
-        
+
         print('Time: ', lasttime)
         pprint(rdd.collect())
 

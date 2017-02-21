@@ -86,7 +86,7 @@ def processRDD(rdd):
 
 
 if __name__ == "__main__":
-    conf = SparkConf().setAppName("Reddit Posts Digest").setMaster(SPARK_MASTER)
+    conf = SparkConf().setAppName("Reddit Posts Digest Process").setMaster(SPARK_MASTER)
     conf.set("spark.shuffle.io.maxRetries", 20)
     sc = SparkContext(conf=conf)
     ssc = StreamingContext(sc, 2)
