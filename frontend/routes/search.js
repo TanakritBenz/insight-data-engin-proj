@@ -64,7 +64,7 @@ var registerQuery = function(topic, cb) {
         id: topic,
         body: {
             "doc": {
-                "match": {
+                "match_phrase": {
                     "post": topic
                 }
             }
@@ -108,7 +108,7 @@ module.exports = function(app) {
             id: query,
             body: {
                 "query": {
-                    "match": {
+                    "match_phrase": {
                         "post": query
                     }
                 }
